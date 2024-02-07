@@ -1,0 +1,19 @@
+{
+  "name": "circuit-breaker-circuits",
+  "devDependencies": {
+    "@noir-lang/backend_barretenberg": "^0.22.0",
+    "@noir-lang/noir_js": "^0.22.0",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.0",
+    "@nomicfoundation/hardhat-viem": "^1.0.2",
+    "@types/chai": "^4.3.11",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^20.11.5",
+    "chai": "4.3.7",
+    "dotenv": "^16.4.1",
+    "hardhat": "^2.19.4",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.0.0",
+    "viem": "^1.15.1"
+  }
+}
