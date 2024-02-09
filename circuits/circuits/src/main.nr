@@ -1,30 +1,42 @@
 use dep::std;
 
-fn compute_merkle_root_sha256<N>(x: [[u8; 32]; N], s: u8) -> [u8; 32] {
-    if s <= 1 {
-        x[0]
-    } else {
-        let mut y: [[u8; 32]; N] = [[0; 32]; N];
-        let mut y_size: u8 = 0;
-        for i in 0..s {
-            if i % 2 == 0 {
-                if i + 1 == s {
-                    y[y_size] = x[i];
-                } else {
-                    // concatenate x and y
-                    let mut z: [u8; 64] = [0; 64];
+fn compute_merkle_root_sha256<N>(data: [[u8; 32]; N], data_size: u8) -> [u8; 32] {
+    let mut new_data: [[u8; 32]; N] = [[0; 32]; N];
+    let mut new_data_size: u8 = 0;
+    for i in 0..data_size {
+        // since we are hasing two elemnts at a time
+        // we only do anything if the index is even
+        if i % 2 == 0 {
+            if i + 1 == data_size {
+                // if the data size is odd, just copy the last hash
+                new_data[new_data_size] = data[i];
+            } else {
+                // concatenate previous data and compute new hash
+                let mut merged_data: [u8; 64] = [0; 64];
 
-                    for b in 0..32 {
-                        z[b] = x[i][b];
-                        z[b + 32] = x[i + 1][b];
-                    }
-
-                    y[y_size] = std::hash::sha256(z);
+                // concatenate the two hashes
+                for b in 0..32 {
+                    merged_data[b] = data[i][b];
+                    merged_data[b + 32] = data[i + 1][b];
                 }
-                y_size += 1;
+
+                new_data[new_data_size] = std::hash::sha256(merged_data);
             }
+            new_data_size += 1;
         }
-        compute_merkle_root_sha256(y, s / 2)
+    }
+    // for some reason, if I used "new_data_size" as a parameter,
+    // it enters an infinite loop. I have no idea why, but for now
+    // this if/else block is a workaround
+    if data_size == 1 {
+        // this should be the root hash already!
+        new_data[0]
+    } else if data_size == 3 {
+        compute_merkle_root_sha256(new_data, 2)
+    } else if data_size % 2 == 0 {
+        compute_merkle_root_sha256(new_data, data_size / 2)
+    } else {
+        compute_merkle_root_sha256(new_data, (data_size / 2) + 1)
     }
 }
 
@@ -90,6 +102,17 @@ fn test_valid_build_merkle_tree() {
     let y = "0x35b8f6f71Ab7Bc464d6a900D8F33c3c287b19bC8".as_bytes();
     let a = "0xe3475047EF9F9231CD6fAe02B3cBc5148E8eB2c8".as_bytes();
     let b = "0x266490c833928159F3803E7E4f17deC3585E570F".as_bytes();
+
+    // 0x5ff1b443633ca92f4f49770be00be04a215b5d947e8c29f05701b1429b641d04
+    assert(
+        compute_merkle_root_sha256(
+        [std::hash::sha256(x), std::hash::sha256(y), std::hash::sha256(a)],
+        3
+    )
+        == [
+            95, 241, 180, 67, 99, 60, 169, 47, 79, 73, 119, 11, 224, 11, 224, 74, 33, 91, 93, 148, 126, 140, 41, 240, 87, 1, 177, 66, 155, 100, 29, 4
+        ]
+    );
 
     // 0x98b7658d651929035a1c89d6346ede30b0231b23a39ef91f3dd2ea61eec3af59
     assert(
