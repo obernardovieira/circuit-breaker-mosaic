@@ -13,13 +13,14 @@ function mapKeysToArray(map: Map<number, string>): `0x${string}`[] {
 async function exportCallToVerifier(
 	addresses: string[],
 	scores: string[],
-	expected: number[]
+	expected_hash: number[],
+	expected_merkle_tree_root_hash: number[]
 ) {
 	const backend = new BarretenbergBackend(circuit as any);
 	const noir = new Noir(circuit as any, backend);
 
 	console.log('Generating proof... ⌛');
-	const proof = await noir.generateFinalProof({ addresses, scores, expected });
+	const proof = await noir.generateFinalProof({ addresses, scores, expected_hash, expected_merkle_tree_root_hash });
 	console.log('Generating proof... ✅');
 
 	return {
@@ -51,13 +52,12 @@ describe("Proofs", function () {
 
 	it("Should generate proof and validate with smart contract", async function () {
 		const { ultraVerifier } = await loadFixture(deployFixture);
-		const addresses = ["0xa6b94ce98d6cd4f447a9c6788f169dd17f65f747"]
-		const scores = ["85"]
-		const expected = [
-			189, 22, 196, 156, 166, 72, 29, 115, 103, 128, 180, 190, 85, 101, 155, 125, 83, 127, 214, 237, 230, 35, 54, 8, 11, 197, 38, 147, 171, 239, 126, 50
-		];
-		const { proof, publicInputs } = await exportCallToVerifier(addresses, scores, expected);
+		const addresses = ["0x2a5fab77e8786c0be13e86cc662f9ee98c178cf3", "0x35b8f6f71ab7bc464d6a900d8f33c3c287b19bc8","0x0000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000"]
+		const scores = ["85", "75", "00", "00", "00", "00", "00", "00", "00", "00"]
+		const expected_hash = [101, 117, 59, 214, 186, 31, 78, 229, 227, 15, 232, 164, 219, 17, 131, 61, 108, 33, 139, 91, 71, 36, 178, 220, 2, 63, 117, 141, 140, 30, 20, 165]
+		const expected_merkle_tree_root_hash = [76, 134, 87, 8, 193, 5, 76, 49, 105, 150, 45, 229, 90, 177, 224, 97, 70, 120, 98, 202, 20, 79, 132, 180, 99, 9, 233, 215, 82, 247, 210, 142];
+		const { proof, publicInputs } = await exportCallToVerifier(addresses, scores, expected_hash, expected_merkle_tree_root_hash);
 
 		expect(await ultraVerifier.read.verify([proof, publicInputs])).to.equal(true);
-	}).timeout(100000);
+	}).timeout(200000);
 });
