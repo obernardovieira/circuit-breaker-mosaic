@@ -1,7 +1,11 @@
 import { viem } from "hardhat";
 
 async function main() {
-	const ultraVerifier = await viem.deployContract("UltraVerifier", []);
+	// console.log(await (await viem.getPublicClient()).getGasPrice());
+	const ultraVerifier = await viem.deployContract("UltraVerifier", [], {
+		// gas: 1000000n,
+		gasPrice: 108000000n,
+	});
 
 	console.log(`UltraVerifier with ${ultraVerifier.address}`);
 }

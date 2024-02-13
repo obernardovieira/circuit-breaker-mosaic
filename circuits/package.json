@@ -1,5 +1,12 @@
 {
   "name": "circuit-breaker-circuits",
+  "scripts": {
+    "compile": "npx hardhat compile",
+    "test": "npx hardhat test",
+    "clean": "npx hardhat clean",
+    "deploy:hh": "npx hardhat run --network hardhat scripts/deploy.ts",
+    "deploy:scrollSepolia": "npx hardhat run --network scrollSepolia scripts/deploy.ts"
+  },
   "devDependencies": {
     "@noir-lang/backend_barretenberg": "^0.22.0",
     "@noir-lang/noir_js": "^0.22.0",

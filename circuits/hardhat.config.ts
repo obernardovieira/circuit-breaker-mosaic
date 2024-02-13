@@ -6,14 +6,13 @@ import "@nomicfoundation/hardhat-verify";
 dotenv.config();
 
 const config: HardhatUserConfig = {
-	// defaultNetwork: "scrollSepolia",
-	// networks: {
-	// 	scrollSepolia: {
-	// 		url: process.env.SCROLL_TESTNET_URL || "",
-	// 		accounts:
-	// 			process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
-	// 	},
-	// },
+	networks: {
+		scrollSepolia: {
+			url: process.env.SCROLL_TESTNET_URL || "",
+			accounts:
+				process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+		},
+	},
 	solidity: {
 		version: "0.8.20",
 		settings: {

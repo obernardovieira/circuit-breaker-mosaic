@@ -8,10 +8,11 @@
     "test": "npx hardhat test",
     "clean": "npx hardhat clean",
     "deploy:hh": "npx hardhat run --network hardhat scripts/deploy.ts",
-    "deploy:scrollTestnet": "npx hardhat run --network scrollTestnet scripts/deploy.ts"
+    "deploy:scrollSepolia": "npx hardhat run --network scrollSepolia scripts/deploy.ts"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-network-helpers": "^1.0.10",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.0",
     "@nomicfoundation/hardhat-viem": "^1.0.2",
     "@openzeppelin/contracts": "^5.0.1",
     "@types/chai": "^4.3.11",
@@ -22,6 +23,6 @@
     "hardhat": "^2.19.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3",
-    "viem": "^2.5.0"
+    "viem": "^1.15.1"
   }
 }

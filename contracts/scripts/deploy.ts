@@ -1,12 +1,10 @@
 import { viem } from "hardhat";
 
 async function main() {
-	const ultraVerifier = await viem.deployContract("UltraVerifierMock");
-	const TrustNetwork = await viem.deployContract("TrustNetwork", [
-		ultraVerifier.address,
-	]);
+	// const ultraVerifier = await viem.deployContract("UltraVerifierMock");
+	const TrustNetwork = await viem.deployContract("TrustNetwork", [ '0x1e263f18890a54420166d43ed9ad0b97de52c0eb' as `0x${string}` ]);
 
-	console.log("UltraVerifier deployed to:", ultraVerifier.address);
+	// console.log("UltraVerifier deployed to:", ultraVerifier.address);
 	console.log("TrustNetwork deployed to:", TrustNetwork.address);
 }
 
