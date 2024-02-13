@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
@@ -22,12 +22,16 @@ interface UltraVerifier {
  * @notice The trust score is a value between 0 and 100. It utilizes a ZK proof to update the trust score.
  */
 contract TrustNetwork is Ownable, AccessControl {
-    struct TrustPenalty {
+    struct UserTrustPenalty {
         uint256 percentage;
         uint256 timestamp;
     }
-    struct TrustScore {
+    struct UserTrustScore {
         uint256 score;
+        uint256 lastUpdate;
+    }
+    struct UserTrustNetwork {
+        bytes32 rootHash;
         uint256 lastUpdate;
     }
     // state variables
@@ -40,20 +44,48 @@ contract TrustNetwork is Ownable, AccessControl {
     address public verifierContractAddress;
     //
     mapping(address => uint256) public invites;
-    mapping(address => TrustScore) public trust;
-    mapping(address => TrustPenalty) public penalties;
+    mapping(address => UserTrustScore) public trust;
+    mapping(address => UserTrustPenalty) public penalties;
+    mapping(address => UserTrustNetwork) public trustNetwork;
+    // events
+    event UserAdded(address indexed _user);
+    event UserJoined(
+        address indexed _user,
+        address indexed _inviter,
+        uint256 _score
+    );
+    event TrustUpdated(address indexed _user, uint256 _score);
+    event PenaltyAdded(
+        address indexed _user,
+        uint256 _percentage,
+        uint256 _prevScore
+    );
+    event NetworkUpdated(address indexed _user, bytes32 _newRootHash);
 
+    // modifiers
+    modifier onlyMember() {
+        require(trust[msg.sender].score > 0, "NOT_MEMBER");
+        _;
+    }
+
+    /**
+     * @dev Constructor
+     * @param _verifierContractAddress The address of the ZK verifier contract
+     */
     constructor(address _verifierContractAddress) Ownable(msg.sender) {
         verifierContractAddress = _verifierContractAddress;
         _grantRole(MANAGER_ROLE, msg.sender);
     }
 
-    // TODO: add method to add new members, called by manager
+    /**
+     * @dev Sets the verifier contract address
+     * @param _member The address of the new member
+     */
     function addMember(address _member) external onlyRole(MANAGER_ROLE) {
         trust[_member].score = 50;
         trust[_member].lastUpdate = block.timestamp;
 
-        // TODO: emit event
+        emit UserAdded(_member);
     }
 
     /**
@@ -67,6 +99,9 @@ contract TrustNetwork is Ownable, AccessControl {
     //  * @param _signature Signature of the inviter
     function join(
         address _inviter,
+        bytes32 _newRootHash,
+        bytes32 _previousInviterRootHash,
+        bytes32 _newInviterRootHash,
         // params for singature
         // bytes memory _sigValue,
         // bytes memory _signature,
@@ -74,6 +109,14 @@ contract TrustNetwork is Ownable, AccessControl {
         bytes calldata _proof,
         bytes32[] calldata _publicInputs
     ) external {
+        // TODO: get signer using _sigValue and _signature (should be EIP712)
+        address inviter = _inviter;
+
+        require(_isInvitationValid(inviter), "NOT_ALLOWED_INVITE");
+        require(
+            trustNetwork[inviter].rootHash == _previousInviterRootHash,
+            "INVALID_INVITER_ROOT_HASH"
+        );
         require(
             UltraVerifier(verifierContractAddress).verify(
                 _proof,
@@ -82,16 +125,15 @@ contract TrustNetwork is Ownable, AccessControl {
             "INVALID_PROOF"
         );
 
-        // TODO: get signer using _sigValue and _signature (should be EIP712)
-        address inviter = _inviter;
-
-        require(_isInvitationValid(inviter), "NOT_ALLOWED_INVITE");
         // when invited, the score will be 4/5 of the inviter's score.
         trust[msg.sender].score = (trust[inviter].score / 5) * 4;
         trust[msg.sender].lastUpdate = block.timestamp;
         invites[inviter]++;
 
-        // TODO: emit event
+        _updateTrustNetwork(msg.sender, _newRootHash);
+        _updateTrustNetwork(_inviter, _newInviterRootHash);
+
+        emit UserJoined(msg.sender, inviter, trust[msg.sender].score);
     }
 
     /**
@@ -106,7 +148,7 @@ contract TrustNetwork is Ownable, AccessControl {
         // params for ZK
         bytes calldata _proof,
         bytes32[] calldata _publicInputs
-    ) external {
+    ) external onlyMember {
         require(
             UltraVerifier(verifierContractAddress).verify(
                 _proof,
@@ -118,47 +160,70 @@ contract TrustNetwork is Ownable, AccessControl {
         // if there was any penalty, clean it
         // the penalty was previously considered when generating the proof
         if (penalties[msg.sender].timestamp > trust[msg.sender].lastUpdate) {
-            penalties[msg.sender] = TrustPenalty(0, 0);
+            penalties[msg.sender] = UserTrustPenalty(0, 0);
         }
 
         trust[msg.sender].score = uint256(_publicInputs[0]) + _incrementScore;
         trust[msg.sender].lastUpdate = block.timestamp;
 
-        // TODO: emit event
+        emit TrustUpdated(msg.sender, trust[msg.sender].score);
     }
 
-    // TODO: add method to reduce trust score
+    /**
+     * @dev Adds a penalty to the given user
+     * @param _user The user to add the penalty
+     * @param _percentage The percentage of the penalty
+     */
     function addPenalty(
         address _user,
         uint256 _percentage
     ) external onlyRole(AUTHORIZED_3RD_PARTY_ROLE) {
         require(penalties[_user].timestamp == 0, "PENALTY_ALREADY_EXISTS");
 
-        TrustPenalty memory _penalty = TrustPenalty(
+        UserTrustPenalty memory _penalty = UserTrustPenalty(
             _percentage,
             block.timestamp
         );
 
-        uint256 _prevScore = _getUserTrustScoreWithPenalty(_user);
+        (uint256 _prevScore, ) = _getUserTrustScoreWithPenalty(_user);
         trust[_user].score = _prevScore;
         penalties[_user] = _penalty;
-        // TODO: emit event
+
+        emit PenaltyAdded(_user, _percentage, trust[_user].score);
     }
 
     /**
-     * @dev Returns the trust score of the given user
-     * @param _users The users to get the trust score
-     * @return The trust score of the given users
+     * @dev Returns the trust score and last penalty of a list of users
+     * @param _users The users to get the trust score and last penalty
+     * @return The trust score and last penalty timestamp of the given users
      */
     function getTrustScore(
         address[] memory _users
-    ) external view returns (uint256[] memory) {
-        uint256[] memory res = new uint[](_users.length);
+    ) external view returns (uint256[] memory, uint256[] memory) {
+        uint256[] memory usersScore = new uint[](_users.length);
+        uint256[] memory usersLastPenalty = new uint[](_users.length);
         for (uint i = 0; i < _users.length; i++) {
-            res[i] = _getUserTrustScoreWithPenalty(_users[i]);
+            (
+                usersScore[i],
+                usersLastPenalty[i]
+            ) = _getUserTrustScoreWithPenalty(_users[i]);
         }
 
-        return res;
+        return (usersScore, usersLastPenalty);
+    }
+
+    /**
+     * @dev Updates the root hash of the trust network of the given user
+     * @param _newRootHash The user new network root hash
+     */
+    function updateTrustNetwork(bytes32 _newRootHash) external onlyMember {
+        // more than 3 months ago
+        require(
+            block.timestamp > trustNetwork[msg.sender].lastUpdate + 7776000,
+            "TOO_SOON"
+        );
+
+        _updateTrustNetwork(msg.sender, _newRootHash);
     }
 
     /*
@@ -176,18 +241,42 @@ contract TrustNetwork is Ownable, AccessControl {
                 res,
                 Strings.toHexString(_addresses[i]),
                 Strings.toString(trust[_addresses[i]].score)
+                // TODO: we need to include last penalty updated on the hash
+                // so we can validate it on the circuit. Otherwise, the user
+                // can change the network root hash even if a penalty was added
+                // to one of their connections during the last month.
             );
         }
         return keccak256(res);
     }
 
+    /**
+     * @dev Private method to update the trust network of the given user
+     * @param _user The user to update the trust network
+     * @param _newRootHash The new root hash of the trust network
+     */
+    function _updateTrustNetwork(address _user, bytes32 _newRootHash) internal {
+        trustNetwork[_user].rootHash = _newRootHash;
+        trustNetwork[_user].lastUpdate = block.timestamp;
+
+        emit NetworkUpdated(_user, _newRootHash);
+    }
+
+    /**
+     * @dev Returns the trust score of the given user with the penalty
+     * @param _user The user to get the trust score
+     * @return The trust score of the given user with the penalty
+     */
     function _getUserTrustScoreWithPenalty(
         address _user
-    ) internal view returns (uint256) {
+    ) internal view returns (uint256, uint256) {
         if (penalties[_user].percentage == 0) {
-            return trust[_user].score;
+            return (trust[_user].score, 0);
         }
-        return (trust[_user].score * (100 - penalties[_user].percentage)) / 100;
+        return (
+            (trust[_user].score * (100 - penalties[_user].percentage)) / 100,
+            penalties[_user].timestamp
+        );
     }
 
     /**
