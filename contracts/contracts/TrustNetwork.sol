@@ -130,6 +130,11 @@ contract TrustNetwork is Ownable, AccessControl {
         trust[msg.sender].lastUpdate = block.timestamp;
         invites[inviter]++;
 
+        // inviter trust core will be updated, decreasing by 1/3 of the difference of score between the inviter and the invited.
+        trust[inviter].score -=
+            (trust[inviter].score - trust[msg.sender].score) /
+            3;
+
         _updateTrustNetwork(msg.sender, _newRootHash);
         _updateTrustNetwork(_inviter, _newInviterRootHash);
 
