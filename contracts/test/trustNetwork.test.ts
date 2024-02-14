@@ -1,7 +1,8 @@
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import hre from "hardhat";
-import { getContract, keccak256, toHex } from "viem";
+import { getContract, keccak256, toHex, sha256 } from "viem";
+import { MerkleTree } from 'merkletreejs';
 
 describe("TrustNetwork", function () {
     async function getAccounts() {
@@ -32,8 +33,11 @@ describe("TrustNetwork", function () {
         return { trustNetwork };
     }
 
-    function computeMerkleRoot(connections: string[]) {
-        return "0x4c865708c1054c3169962de55ab1e061467862ca144f84b46309e9d752f7d28e" as `0x${string}`;
+    function computeMerkleRoot(connections: `0x${string}`[]) {
+        const leaves = connections.map(x => sha256(x))
+        const tree = new MerkleTree(leaves, sha256)
+        const root = tree.getRoot().toString('hex')
+        return keccak256(root as `0x${string}`);
     }
 
     function mockProof() {

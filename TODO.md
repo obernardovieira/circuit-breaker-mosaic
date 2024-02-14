@@ -1,0 +1,4 @@
+* (possibility) Use SparseMerkleTrees instead and start adding users slowly, then faster
+* Use [EnumerableSet](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/structs/EnumerableSet.sol) to add and remove tree root hashes linked to a user, so, the invited person can validate the hash was actually valid when invited, even though the inviter needs to confirm (mayble do something with the invite code as well)
+* No need to send the merkle tree hash to be asserted on the circuit, it should be returned and asserted on the contract though
+* Use signatures to invite users, with a root hash, a friend and the siblings. If no friends, it will be empty

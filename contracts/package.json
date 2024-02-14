@@ -23,6 +23,7 @@
     "hardhat": "^2.19.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3",
-    "viem": "^1.15.1"
+    "viem": "^1.15.1",
+    "merkletreejs": "^0.3.11"
   }
 }
