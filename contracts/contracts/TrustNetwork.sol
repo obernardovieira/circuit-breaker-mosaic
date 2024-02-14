@@ -75,6 +75,7 @@ contract TrustNetwork is Ownable, AccessControl {
     constructor(address _verifierContractAddress) Ownable(msg.sender) {
         verifierContractAddress = _verifierContractAddress;
         _grantRole(MANAGER_ROLE, msg.sender);
+        _setRoleAdmin(AUTHORIZED_3RD_PARTY_ROLE, MANAGER_ROLE);
     }
 
     /**
@@ -95,21 +96,15 @@ contract TrustNetwork is Ownable, AccessControl {
      * @param _proof ZK proof
      * @param _publicInputs ZK public inputs
      */
-    //  * @param _sigValue Signature value of the inviter
-    //  * @param _signature Signature of the inviter
     function join(
         address _inviter,
         bytes32 _newRootHash,
         bytes32 _previousInviterRootHash,
         bytes32 _newInviterRootHash,
-        // params for singature
-        // bytes memory _sigValue,
-        // bytes memory _signature,
         // params for ZK
         bytes calldata _proof,
         bytes32[] calldata _publicInputs
     ) external {
-        // TODO: get signer using _sigValue and _signature (should be EIP712)
         address inviter = _inviter;
 
         require(_isInvitationValid(inviter), "NOT_ALLOWED_INVITE");

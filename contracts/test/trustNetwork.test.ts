@@ -5,9 +5,9 @@ import { getContract, keccak256, toHex } from "viem";
 
 describe("TrustNetwork", function () {
     async function getAccounts() {
-        const [owner, member1, member2, member3] =
+        const [owner, authorized1, member1, member2, member3] =
             await hre.viem.getWalletClients();
-        return { owner, member1, member2, member3 };
+        return { owner, authorized1, member1, member2, member3 };
     }
 
     async function deployFixture() {
@@ -196,5 +196,82 @@ describe("TrustNetwork", function () {
                 `${member1.account.address}85${member2.account.address}76${member3.account.address}72`
             ) as `0x${string}`
         );
+    });
+
+    it("should add penalties", async function () {
+        const { proof, publicInputs } = mockProof();
+        const { authorized1, member1, member2, member3 } = await getAccounts();
+        const { trustNetwork } = await loadFixture(deployFixture);
+
+        await trustNetwork.write.addMember([member1.account.address]);
+        await trustNetwork.write.computeNewTrust([3n, proof, publicInputs], {
+            account: member1.account,
+        });
+        expect(
+            await trustNetwork.read.getTrustScore([[member1.account.address]])
+        ).to.deep.equal([[98n], [0n]]);
+        const newRootHash = computeMerkleRoot([member1.account.address]);
+        const previousInviterRootHash =
+            "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`;
+        const newInviterRootHash = computeMerkleRoot([member2.account.address]);
+        await trustNetwork.write.join(
+            [
+                member1.account.address,
+                newRootHash,
+                previousInviterRootHash,
+                newInviterRootHash,
+                proof,
+                publicInputs,
+            ],
+            { account: member2.account }
+        );
+        const [scores1] = await trustNetwork.read.getTrustScore([
+            [
+                member1.account.address,
+                member2.account.address
+            ],
+        ]);
+        expect(scores1).to.deep.equal([91n, 76n]);
+        await trustNetwork.write.join(
+            [
+                member1.account.address,
+                newRootHash,
+                newInviterRootHash,
+                newInviterRootHash,
+                proof,
+                publicInputs,
+            ],
+            { account: member3.account }
+        );
+        const [scores2] = await trustNetwork.read.getTrustScore([
+            [
+                member1.account.address,
+                member2.account.address,
+                member3.account.address,
+            ],
+        ]);
+        expect(scores2).to.deep.equal([85n, 76n, 72n]);
+        const hash = await trustNetwork.read.getHash([
+            [
+                member1.account.address,
+                member2.account.address,
+                member3.account.address,
+            ],
+        ]);
+        expect(hash).to.equal(
+            keccak256(
+                `${member1.account.address}85${member2.account.address}76${member3.account.address}72`
+            ) as `0x${string}`
+        );
+        await trustNetwork.write.grantRole([keccak256(toHex("AUTHORIZED_3RD_PARTY_ROLE")), authorized1.account.address]);
+        await trustNetwork.write.addPenalty([member1.account.address, 10n], { account: authorized1.account });
+        const [scores3] = await trustNetwork.read.getTrustScore([
+            [
+                member1.account.address,
+                member2.account.address,
+                member3.account.address,
+            ],
+        ]);
+        expect(scores3).to.deep.equal([76n, 76n, 72n]);
     });
 });
